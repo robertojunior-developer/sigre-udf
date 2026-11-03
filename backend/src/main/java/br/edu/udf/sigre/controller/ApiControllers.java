@@ -83,11 +83,11 @@ public class ApiControllers {
   }
 
   @GetMapping("/admin/relatorio-reposicao")
-  List<RelatorioReposicaoItem> relatorioReposicao(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data,
-      @RequestParam(required = false) String turma,
+  List<RelatorioReposicaoItem> relatorioReposicao(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String turno) {
-    return service.relatorioReposicao(data, turma, status, turno);
+    return service.relatorioReposicao(inicio, fim, status, turno);
   }
 
   @GetMapping("/admin/solicitacoes/{id}")

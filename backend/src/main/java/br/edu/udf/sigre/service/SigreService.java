@@ -187,22 +187,21 @@ public class SigreService {
         """, (rs, row) -> new ConfirmadoItem(rs.getDate("data").toLocalDate(), rs.getString("turno"), rs.getString("aluno"), rs.getString("matricula"), rs.getString("curso"), rs.getString("turma")), inicio, fim);
   }
 
-  public List<RelatorioReposicaoItem> relatorioReposicao(LocalDate data, String turma, String status, String turno) {
+  public List<RelatorioReposicaoItem> relatorioReposicao(LocalDate inicio, LocalDate fim, String status, String turno) {
     StringBuilder sql = new StringBuilder("""
         select a.nome aluno, a.matricula, c.nome curso, sd.turno, sd.data, sd.status, s.protocolo
         from solicitacao_datas sd
         join solicitacoes s on s.id=sd.solicitacao_id
         join alunos a on a.id=s.aluno_id
         left join cursos c on c.id=a.curso_id
-        left join turmas t on t.curso_id=c.id and t.turno=sd.turno
         where 1=1
         """);
     List<Object> args = new java.util.ArrayList<>();
-    if (data != null) { sql.append(" and sd.data=?"); args.add(data); }
-    if (turma != null && !turma.isBlank()) { sql.append(" and lower(coalesce(t.nome, '')) like lower(?)"); args.add("%" + turma.trim() + "%"); }
+    if (inicio != null) { sql.append(" and sd.data>=?"); args.add(inicio); }
+    if (fim != null) { sql.append(" and sd.data<=?"); args.add(fim); }
     if (status != null && !status.isBlank()) { sql.append(" and sd.status=?"); args.add(status.trim()); }
     if (turno != null && !turno.isBlank()) { sql.append(" and sd.turno=?"); args.add(turno.trim()); }
-    sql.append(" order by a.nome, a.matricula, sd.data, sd.turno");
+    sql.append(" order by sd.data, sd.turno, a.nome, a.matricula");
     return jdbc.query(sql.toString(), (rs, row) -> new RelatorioReposicaoItem(rs.getString("aluno"), rs.getString("matricula"), rs.getString("curso"), rs.getString("turno"), rs.getDate("data").toLocalDate(), rs.getString("status"), rs.getString("protocolo")), args.toArray());
   }
 
