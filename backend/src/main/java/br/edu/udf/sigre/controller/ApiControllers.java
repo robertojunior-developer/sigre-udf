@@ -82,6 +82,14 @@ public class ApiControllers {
     return service.confirmados(inicio, fim);
   }
 
+  @GetMapping("/admin/relatorio-reposicao")
+  List<RelatorioReposicaoItem> relatorioReposicao(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data,
+      @RequestParam(required = false) String turma,
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) String turno) {
+    return service.relatorioReposicao(data, turma, status, turno);
+  }
+
   @GetMapping("/admin/solicitacoes/{id}")
   SolicitacaoDetalhe solicitacaoDetalhe(@PathVariable UUID id) {
     return service.solicitacaoDetalhe(id);

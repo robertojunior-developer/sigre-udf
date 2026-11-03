@@ -21,6 +21,7 @@ public final class Dtos {
   public record Dashboard(long total, long pendentes, long aguardandoDocumentacao, long aprovadas, long rejeitadas, long vagasDisponiveis, long vagasOcupadas, long emailsEnviados, long emailsFalha) {}
   public record SolicitacaoResumo(UUID id, String protocolo, String aluno, String matricula, String curso, String status, LocalDate criadoEm) {}
   public record ConfirmadoItem(LocalDate data, String turno, String aluno, String matricula, String curso, String turma) {}
+  public record RelatorioReposicaoItem(String aluno, String matricula, String curso, String turno, LocalDate data, String status, String protocolo) {}
   public record AlunoConsultaItem(String protocolo, LocalDate data, String turno, String status, String justificativa, String curso) {}
   public record SolicitacaoDataResumo(UUID id, LocalDate data, String turno, String status, UUID vagaReposicaoId) {}
   public record DocumentoResumo(UUID id, String nomeArquivo, String contentType, String storageKey, String criadoEm) {}

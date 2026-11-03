@@ -129,6 +129,9 @@ public class SigreService {
       if (data.data().getDayOfWeek() == DayOfWeek.SATURDAY || data.data().getDayOfWeek() == DayOfWeek.SUNDAY) {
         throw new IllegalArgumentException("Sábados e domingos não podem ser solicitados");
       }
+      if (data.data().isBefore(LocalDate.now().plusDays(3))) {
+        throw new IllegalArgumentException("A data da reposição deve ter antecedência mínima de 3 dias");
+      }
       jdbc.update("insert into solicitacao_datas(solicitacao_id, data, turno) values (?, ?, ?)", solicitacaoId, data.data(), data.turno());
     }
     auditar(auditoria, "solicitacoes", solicitacaoId.toString());
@@ -182,6 +185,25 @@ public class SigreService {
         where sd.status='APROVADA' and sd.data between ? and ?
         order by sd.data, sd.turno, a.nome
         """, (rs, row) -> new ConfirmadoItem(rs.getDate("data").toLocalDate(), rs.getString("turno"), rs.getString("aluno"), rs.getString("matricula"), rs.getString("curso"), rs.getString("turma")), inicio, fim);
+  }
+
+  public List<RelatorioReposicaoItem> relatorioReposicao(LocalDate data, String turma, String status, String turno) {
+    StringBuilder sql = new StringBuilder("""
+        select a.nome aluno, a.matricula, c.nome curso, sd.turno, sd.data, sd.status, s.protocolo
+        from solicitacao_datas sd
+        join solicitacoes s on s.id=sd.solicitacao_id
+        join alunos a on a.id=s.aluno_id
+        left join cursos c on c.id=a.curso_id
+        left join turmas t on t.curso_id=c.id and t.turno=sd.turno
+        where 1=1
+        """);
+    List<Object> args = new java.util.ArrayList<>();
+    if (data != null) { sql.append(" and sd.data=?"); args.add(data); }
+    if (turma != null && !turma.isBlank()) { sql.append(" and lower(coalesce(t.nome, '')) like lower(?)"); args.add("%" + turma.trim() + "%"); }
+    if (status != null && !status.isBlank()) { sql.append(" and sd.status=?"); args.add(status.trim()); }
+    if (turno != null && !turno.isBlank()) { sql.append(" and sd.turno=?"); args.add(turno.trim()); }
+    sql.append(" order by a.nome, a.matricula, sd.data, sd.turno");
+    return jdbc.query(sql.toString(), (rs, row) -> new RelatorioReposicaoItem(rs.getString("aluno"), rs.getString("matricula"), rs.getString("curso"), rs.getString("turno"), rs.getDate("data").toLocalDate(), rs.getString("status"), rs.getString("protocolo")), args.toArray());
   }
 
   public List<AlunoConsultaItem> consultarAlunoPorMatricula(String matricula) {
