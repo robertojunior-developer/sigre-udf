@@ -48,8 +48,13 @@ public class ApiControllers {
   }
 
   @GetMapping("/aluno/solicitacoes")
-  List<AlunoConsultaItem> consultarSolicitacoesAluno(@RequestParam String cpf) {
-    return service.consultarAlunoPorCpf(cpf);
+  List<AlunoConsultaItem> consultarSolicitacoesAluno(@RequestParam String matricula) {
+    return service.consultarAlunoPorMatricula(matricula);
+  }
+
+  @PostMapping("/aluno/solicitacoes/{id}/documentos")
+  Map<String, UUID> uploadDocumentoAluno(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+    return Map.of("id", service.registrarDocumento(id, file));
   }
 
   @PostMapping("/admin/usuarios")

@@ -184,16 +184,16 @@ public class SigreService {
         """, (rs, row) -> new ConfirmadoItem(rs.getDate("data").toLocalDate(), rs.getString("turno"), rs.getString("aluno"), rs.getString("matricula"), rs.getString("curso"), rs.getString("turma")), inicio, fim);
   }
 
-  public List<AlunoConsultaItem> consultarAlunoPorCpf(String cpf) {
+  public List<AlunoConsultaItem> consultarAlunoPorMatricula(String matricula) {
     return jdbc.query("""
         select s.protocolo, sd.data, sd.turno, sd.status, s.justificativa, c.nome curso
         from alunos a
         join solicitacoes s on s.aluno_id=a.id
         join solicitacao_datas sd on sd.solicitacao_id=s.id
         left join cursos c on c.id=a.curso_id
-        where a.cpf_hash=?
+        where lower(a.matricula)=lower(?)
         order by sd.data desc, sd.turno
-        """, (rs, row) -> new AlunoConsultaItem(rs.getString("protocolo"), rs.getDate("data").toLocalDate(), rs.getString("turno"), rs.getString("status"), rs.getString("justificativa"), rs.getString("curso")), hash(cpf));
+        """, (rs, row) -> new AlunoConsultaItem(rs.getString("protocolo"), rs.getDate("data").toLocalDate(), rs.getString("turno"), rs.getString("status"), rs.getString("justificativa"), rs.getString("curso")), matricula.trim());
   }
 
   public SolicitacaoDetalhe solicitacaoDetalhe(UUID id) {

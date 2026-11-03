@@ -25,6 +25,8 @@ services:
         condition: service_healthy
   frontend:
     build: ./frontend
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
     ports:
       - "${FRONTEND_PORT:-4200}:80"
     depends_on:
