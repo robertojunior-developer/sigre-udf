@@ -14,6 +14,10 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 25MB
 security:
   forms-api-token: ${FORMS_API_TOKEN:dev-forms-token}
   cors-origins: ${CORS_ORIGINS:http://localhost:4200}
