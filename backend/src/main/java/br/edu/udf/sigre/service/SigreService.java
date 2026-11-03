@@ -35,19 +35,28 @@ public class SigreService {
 
   @Transactional
   public UUID criarAdministrador(NovoAdminRequest req) {
+    return criarAdministrador(req.nome(), req.email(), req.senha(), true);
+  }
+
+  @Transactional
+  public UUID criarAdministradorBootstrap(String nome, String email, String senha) {
+    return criarAdministrador(nome, email, senha, false);
+  }
+
+  private UUID criarAdministrador(String nome, String email, String senha, boolean auditarCriacao) {
     jdbc.update("insert into perfis(nome) values ('ADMIN') on conflict (nome) do nothing");
     UUID id = jdbc.queryForObject("""
         insert into usuarios(nome, email, senha_hash, ativo)
         values (?, ?, ?, true)
         on conflict (email) do update set nome=excluded.nome, senha_hash=excluded.senha_hash, ativo=true
         returning id
-        """, UUID.class, req.nome(), req.email(), passwordEncoder.encode(req.senha()));
+        """, UUID.class, nome, email, passwordEncoder.encode(senha));
     jdbc.update("""
         insert into usuario_perfis(usuario_id, perfil_id)
         select ?, id from perfis where nome='ADMIN'
         on conflict do nothing
         """, id);
-    auditar("ADMIN_CRIADO", "usuarios", id.toString());
+    if (auditarCriacao) auditar("ADMIN_CRIADO", "usuarios", id.toString());
     return id;
   }
 
