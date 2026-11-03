@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sigre}
+      POSTGRES_USER: ${POSTGRES_USER:-sigre}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sigre}
+    volumes:
+      - sigre_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sigre} -d ${POSTGRES_DB:-sigre}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  backend:
+    build: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sigre}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-sigre}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-sigre}
+      FORMS_API_TOKEN: ${FORMS_API_TOKEN:-change-me}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4200}
+    depends_on:
+      postgres:
+        condition: service_healthy
+  frontend:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    depends_on:
+      - backend
+volumes:
+  sigre_pg:

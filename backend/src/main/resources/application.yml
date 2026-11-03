@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: sigre
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/sigre}
+    username: ${SPRING_DATASOURCE_USERNAME:sigre}
+    password: ${SPRING_DATASOURCE_PASSWORD:sigre}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+security:
+  forms-api-token: ${FORMS_API_TOKEN:dev-forms-token}
+  cors-origins: ${CORS_ORIGINS:http://localhost:4200}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+logging:
+  level:
+    br.edu.udf.sigre: INFO

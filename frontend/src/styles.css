@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+body { margin: 0; font-family: Inter, Arial, sans-serif; background: #eef3f8; color: #102033; }
+.focus-ring { @apply focus:outline-none focus:ring-4 focus:ring-blue-200; }
+.status-aprovada { @apply bg-green-50 text-ok border-green-200; }
+.status-pendente { @apply bg-yellow-50 text-wait border-yellow-200; }
+.status-rejeitada { @apply bg-red-50 text-no border-red-200; }
