@@ -393,13 +393,15 @@ public class SigreService {
     for (UUID sdId : req.solicitacaoDataIds()) {
       List<UUID> vagas = jdbc.query("""
           select v.id from solicitacao_datas sd join vagas_reposicao v on v.data=sd.data and v.turno=sd.turno
-          where sd.id=? and v.situacao='ABERTA' order by case when v.curso_id is null then 1 else 0 end limit 1 for update of v
-          """, (rs, row) -> UUID.fromString(rs.getString("id")), sdId);
+          where sd.id=? and sd.solicitacao_id=? and v.situacao='ABERTA'
+          order by case when v.curso_id is null then 1 else 0 end limit 1 for update of v
+          """, (rs, row) -> UUID.fromString(rs.getString("id")), sdId, solicitacaoId);
       UUID vagaId = vagas.isEmpty() ? criarVagaAutomatica(sdId) : vagas.get(0);
-      Integer livres = jdbc.queryForObject("select capacidade_maxima - (select count(*) from reservas where vaga_reposicao_id=?) from vagas_reposicao where id=?", Integer.class, vagaId, vagaId);
+      Integer livres = jdbc.queryForObject("select capacidade_maxima - (select count(*) from reservas where vaga_reposicao_id=? and solicitacao_data_id<>?) from vagas_reposicao where id=?", Integer.class, vagaId, sdId, vagaId);
       if (livres == null || livres <= 0) throw new IllegalStateException("Vaga esgotada");
+      jdbc.update("delete from reservas where solicitacao_data_id=?", sdId);
       jdbc.update("insert into reservas(solicitacao_data_id, vaga_reposicao_id, aluno_id) values (?, ?, ?)", sdId, vagaId, alunoId);
-      jdbc.update("update solicitacao_datas set status='APROVADA', vaga_reposicao_id=? where id=?", vagaId, sdId);
+      jdbc.update("update solicitacao_datas set status='APROVADA', vaga_reposicao_id=?, justificativa=null where id=? and solicitacao_id=?", vagaId, sdId, solicitacaoId);
     }
     atualizarStatusSolicitacao(solicitacaoId);
     jdbc.update("insert into eventos_outbox(tipo, aggregate_id, dedup_key, payload) values ('EMAIL_APROVACAO', ?, ?, jsonb_build_object('solicitacaoId', ?::text)) on conflict do nothing", solicitacaoId, "EMAIL_APROVACAO:" + solicitacaoId, solicitacaoId.toString());
@@ -423,6 +425,15 @@ public class SigreService {
   }
 
   private UUID criarVagaAutomatica(UUID solicitacaoDataId) {
+    List<UUID> existentes = jdbc.query("""
+        select v.id
+        from solicitacao_datas sd
+        join vagas_reposicao v on v.data=sd.data and v.turno=sd.turno and v.situacao='ABERTA'
+        where sd.id=?
+        order by case when v.curso_id is null then 1 else 0 end
+        limit 1 for update of v
+        """, (rs, row) -> UUID.fromString(rs.getString("id")), solicitacaoDataId);
+    if (!existentes.isEmpty()) return existentes.get(0);
     return jdbc.queryForObject("""
         insert into vagas_reposicao(data, turno, horario, local, curso_id, capacidade_maxima, situacao)
         select data, turno, case turno when 'MANHA' then '08:00'::time when 'TARDE' then '14:00'::time else '19:00'::time end,
