@@ -86,13 +86,13 @@ public class SigreService {
 
   @Transactional
   public SolicitacaoCriadaResponse registrarForms(FormsSolicitacaoRequest req) {
-    return registrarSolicitacao(req.nome(), req.email(), req.matricula(), req.cpf(), req.curso(), req.responseId(), "MICROSOFT_FORMS", req.datas(), "FORMS_RECEBIDO");
+    return registrarSolicitacao(req.nome(), req.email(), req.matricula(), req.cpf(), req.curso(), null, req.responseId(), "MICROSOFT_FORMS", req.datas(), "FORMS_RECEBIDO");
   }
 
   @Transactional
   public SolicitacaoCriadaResponse registrarSolicitacaoAluno(AlunoSolicitacaoRequest req) {
     String idempotencyKey = "PORTAL_ALUNO:" + req.matricula() + ":" + req.datas().hashCode() + ":" + LocalDate.now();
-    return registrarSolicitacao(req.nome(), req.email(), req.matricula(), req.cpf(), req.curso(), idempotencyKey, "PORTAL_ALUNO", req.datas(), "SOLICITACAO_ALUNO_CRIADA");
+    return registrarSolicitacao(req.nome(), req.email(), req.matricula(), req.cpf(), req.curso(), req.motivo(), idempotencyKey, "PORTAL_ALUNO", req.datas(), "SOLICITACAO_ALUNO_CRIADA");
   }
 
   private void validarDatasUnicasPorCpf(String cpf, List<SolicitacaoDataRequest> datas) {
@@ -110,7 +110,7 @@ public class SigreService {
     }
   }
 
-  private SolicitacaoCriadaResponse registrarSolicitacao(String nome, String email, String matricula, String cpf, String curso, String idempotencyKey, String origem, List<SolicitacaoDataRequest> datas, String auditoria) {
+  private SolicitacaoCriadaResponse registrarSolicitacao(String nome, String email, String matricula, String cpf, String curso, String motivoAluno, String idempotencyKey, String origem, List<SolicitacaoDataRequest> datas, String auditoria) {
     validarDatasUnicasPorCpf(cpf, datas);
     Long cursoId = obterOuCriarCurso(curso);
     UUID alunoId = jdbc.queryForObject("""
@@ -121,7 +121,7 @@ public class SigreService {
     String protocolo = "SIGRE-" + System.currentTimeMillis();
     UUID solicitacaoId;
     try {
-      solicitacaoId = jdbc.queryForObject("insert into solicitacoes(protocolo, aluno_id, origem, idempotency_key, status) values (?, ?, ?, ?, 'PENDENTE_ANALISE') returning id", UUID.class, protocolo, alunoId, origem, idempotencyKey);
+      solicitacaoId = jdbc.queryForObject("insert into solicitacoes(protocolo, aluno_id, origem, idempotency_key, status, motivo_aluno) values (?, ?, ?, ?, 'PENDENTE_ANALISE', ?) returning id", UUID.class, protocolo, alunoId, origem, idempotencyKey, motivoAluno);
     } catch (DuplicateKeyException ex) {
       return jdbc.queryForObject("select id, protocolo, status from solicitacoes where idempotency_key = ?", (rs, row) -> new SolicitacaoCriadaResponse(UUID.fromString(rs.getString("id")), rs.getString("protocolo"), rs.getString("status")), idempotencyKey);
     }
@@ -207,7 +207,7 @@ public class SigreService {
 
   public List<AlunoConsultaItem> consultarAlunoPorMatricula(String matricula) {
     return jdbc.query("""
-        select s.protocolo, sd.data, sd.turno, sd.status, s.justificativa, c.nome curso
+        select s.protocolo, sd.data, sd.turno, sd.status, coalesce(sd.justificativa, s.justificativa) justificativa, c.nome curso
         from alunos a
         join solicitacoes s on s.aluno_id=a.id
         join solicitacao_datas sd on sd.solicitacao_id=s.id
@@ -219,12 +219,12 @@ public class SigreService {
 
   public SolicitacaoDetalhe solicitacaoDetalhe(UUID id) {
     SolicitacaoDetalhe base = jdbc.queryForObject("""
-        select s.id, s.protocolo, a.nome aluno, a.email, a.matricula, c.nome curso, s.status, s.justificativa, s.criado_em::text criado_em
+        select s.id, s.protocolo, a.nome aluno, a.email, a.matricula, c.nome curso, s.status, s.justificativa, s.motivo_aluno, s.criado_em::text criado_em
         from solicitacoes s join alunos a on a.id=s.aluno_id left join cursos c on c.id=a.curso_id where s.id=?
-        """, (rs, row) -> new SolicitacaoDetalhe(UUID.fromString(rs.getString("id")), rs.getString("protocolo"), rs.getString("aluno"), rs.getString("email"), rs.getString("matricula"), rs.getString("curso"), rs.getString("status"), rs.getString("justificativa"), rs.getString("criado_em"), List.of(), List.of()), id);
-    List<SolicitacaoDataResumo> datas = jdbc.query("select id, data, turno, status, vaga_reposicao_id from solicitacao_datas where solicitacao_id=? order by data, turno", (rs, row) -> new SolicitacaoDataResumo(UUID.fromString(rs.getString("id")), rs.getDate("data").toLocalDate(), rs.getString("turno"), rs.getString("status"), rs.getString("vaga_reposicao_id") == null ? null : UUID.fromString(rs.getString("vaga_reposicao_id"))), id);
+        """, (rs, row) -> new SolicitacaoDetalhe(UUID.fromString(rs.getString("id")), rs.getString("protocolo"), rs.getString("aluno"), rs.getString("email"), rs.getString("matricula"), rs.getString("curso"), rs.getString("status"), rs.getString("justificativa"), rs.getString("motivo_aluno"), rs.getString("criado_em"), List.of(), List.of()), id);
+    List<SolicitacaoDataResumo> datas = jdbc.query("select id, data, turno, status, vaga_reposicao_id, justificativa from solicitacao_datas where solicitacao_id=? order by data, turno", (rs, row) -> new SolicitacaoDataResumo(UUID.fromString(rs.getString("id")), rs.getDate("data").toLocalDate(), rs.getString("turno"), rs.getString("status"), rs.getString("vaga_reposicao_id") == null ? null : UUID.fromString(rs.getString("vaga_reposicao_id")), rs.getString("justificativa")), id);
     List<DocumentoResumo> documentos = documentos(id);
-    return new SolicitacaoDetalhe(base.id(), base.protocolo(), base.aluno(), base.email(), base.matricula(), base.curso(), base.status(), base.justificativa(), base.criadoEm(), datas, documentos);
+    return new SolicitacaoDetalhe(base.id(), base.protocolo(), base.aluno(), base.email(), base.matricula(), base.curso(), base.status(), base.justificativa(), base.motivoAluno(), base.criadoEm(), datas, documentos);
   }
 
   public List<DocumentoResumo> documentos(UUID solicitacaoId) {
@@ -272,7 +272,11 @@ public class SigreService {
 
   @Transactional
   public void solicitarDocumentacao(UUID solicitacaoId, DecisaoRequest req) {
-    jdbc.update("update solicitacoes set status='AGUARDANDO_DOCUMENTACAO', justificativa=?, atualizado_em=now() where id=?", req.justificativa(), solicitacaoId);
+    jdbc.queryForObject("select id from solicitacoes where id = ? for update", UUID.class, solicitacaoId);
+    for (UUID sdId : req.solicitacaoDataIds()) {
+      jdbc.update("update solicitacao_datas set status='AGUARDANDO_DOCUMENTACAO', justificativa=? where id=? and solicitacao_id=?", req.justificativa(), sdId, solicitacaoId);
+    }
+    atualizarStatusSolicitacao(solicitacaoId);
     auditar("DOCUMENTACAO_SOLICITADA", "solicitacoes", solicitacaoId.toString());
   }
 
@@ -397,12 +401,25 @@ public class SigreService {
       jdbc.update("insert into reservas(solicitacao_data_id, vaga_reposicao_id, aluno_id) values (?, ?, ?)", sdId, vagaId, alunoId);
       jdbc.update("update solicitacao_datas set status='APROVADA', vaga_reposicao_id=? where id=?", vagaId, sdId);
     }
-    Integer totalDatas = jdbc.queryForObject("select count(*) from solicitacao_datas where solicitacao_id=?", Integer.class, solicitacaoId);
-    Integer aprovadas = jdbc.queryForObject("select count(*) from solicitacao_datas where solicitacao_id=? and status='APROVADA'", Integer.class, solicitacaoId);
-    String novoStatus = totalDatas != null && aprovadas != null && aprovadas < totalDatas ? "PARCIALMENTE_APROVADA" : "APROVADA";
-    jdbc.update("update solicitacoes set status=?, atualizado_em=now() where id=?", novoStatus, solicitacaoId);
+    atualizarStatusSolicitacao(solicitacaoId);
     jdbc.update("insert into eventos_outbox(tipo, aggregate_id, dedup_key, payload) values ('EMAIL_APROVACAO', ?, ?, jsonb_build_object('solicitacaoId', ?::text)) on conflict do nothing", solicitacaoId, "EMAIL_APROVACAO:" + solicitacaoId, solicitacaoId.toString());
     auditar("SOLICITACAO_APROVADA", "solicitacoes", solicitacaoId.toString());
+  }
+
+  private void atualizarStatusSolicitacao(UUID solicitacaoId) {
+    Map<String, Object> contagens = jdbc.queryForMap("""
+        select count(*) total,
+          count(*) filter (where status='APROVADA') aprovadas,
+          count(*) filter (where status='REJEITADA') rejeitadas,
+          count(*) filter (where status='AGUARDANDO_DOCUMENTACAO') documentacao
+        from solicitacao_datas where solicitacao_id=?
+        """, solicitacaoId);
+    long total = ((Number) contagens.get("total")).longValue();
+    long aprovadas = ((Number) contagens.get("aprovadas")).longValue();
+    long rejeitadas = ((Number) contagens.get("rejeitadas")).longValue();
+    long documentacao = ((Number) contagens.get("documentacao")).longValue();
+    String status = total > 0 && aprovadas == total ? "APROVADA" : total > 0 && rejeitadas == total ? "REJEITADA" : documentacao > 0 ? "AGUARDANDO_DOCUMENTACAO" : aprovadas > 0 ? "PARCIALMENTE_APROVADA" : "PENDENTE_ANALISE";
+    jdbc.update("update solicitacoes set status=?, atualizado_em=now() where id=?", status, solicitacaoId);
   }
 
   private UUID criarVagaAutomatica(UUID solicitacaoDataId) {
@@ -416,8 +433,12 @@ public class SigreService {
 
   @Transactional
   public void rejeitar(UUID solicitacaoId, DecisaoRequest req) {
-    jdbc.update("update solicitacoes set status='REJEITADA', justificativa=?, atualizado_em=now() where id=?", req.justificativa(), solicitacaoId);
-    jdbc.update("update solicitacao_datas set status='REJEITADA' where solicitacao_id=?", solicitacaoId);
+    jdbc.queryForObject("select id from solicitacoes where id = ? for update", UUID.class, solicitacaoId);
+    for (UUID sdId : req.solicitacaoDataIds()) {
+      jdbc.update("delete from reservas where solicitacao_data_id=?", sdId);
+      jdbc.update("update solicitacao_datas set status='REJEITADA', justificativa=?, vaga_reposicao_id=null where id=? and solicitacao_id=?", req.justificativa(), sdId, solicitacaoId);
+    }
+    atualizarStatusSolicitacao(solicitacaoId);
     auditar("SOLICITACAO_REJEITADA", "solicitacoes", solicitacaoId.toString());
   }
 

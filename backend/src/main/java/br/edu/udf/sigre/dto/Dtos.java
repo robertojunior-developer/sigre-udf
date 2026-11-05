@@ -23,9 +23,9 @@ public final class Dtos {
   public record ConfirmadoItem(LocalDate data, String turno, String aluno, String matricula, String curso, String turma) {}
   public record RelatorioReposicaoItem(String aluno, String matricula, String curso, String turno, LocalDate data, String status, String protocolo) {}
   public record AlunoConsultaItem(String protocolo, LocalDate data, String turno, String status, String justificativa, String curso) {}
-  public record SolicitacaoDataResumo(UUID id, LocalDate data, String turno, String status, UUID vagaReposicaoId) {}
+  public record SolicitacaoDataResumo(UUID id, LocalDate data, String turno, String status, UUID vagaReposicaoId, String justificativa) {}
   public record DocumentoResumo(UUID id, String nomeArquivo, String contentType, String storageKey, String criadoEm) {}
-  public record SolicitacaoDetalhe(UUID id, String protocolo, String aluno, String email, String matricula, String curso, String status, String justificativa, String criadoEm, List<SolicitacaoDataResumo> datas, List<DocumentoResumo> documentos) {}
+  public record SolicitacaoDetalhe(UUID id, String protocolo, String aluno, String email, String matricula, String curso, String status, String justificativa, String motivoAluno, String criadoEm, List<SolicitacaoDataResumo> datas, List<DocumentoResumo> documentos) {}
   public record CadastroRequest(@NotBlank String nome, String email, Long cursoId, String turno) {}
   public record CadastroItem(Long id, String nome, String email, Long cursoId, String curso, String turno) {}
   public record VagaRequest(@NotNull LocalDate data, @NotBlank String turno, @NotNull LocalTime horario, @NotBlank String local, Long cursoId, @PositiveOrZero int capacidadeMaxima, @NotBlank String situacao) {}
